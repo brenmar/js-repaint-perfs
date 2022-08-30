@@ -1,56 +1,41 @@
 $(function() {
-  // no cheating
-  domvm.useRaf = false;
+  var h = (tag, arg1, arg2) => domvm.defineElement(tag, arg1, arg2, domvm.FIXED_BODY);
 
-  function DBMonView(vm, dbmon) {
-    dbmon.vm = vm;
-
-    return {
-      render: function(data) {
-        return ["div", [
-          ["table", { class: "table table-striped latest-data" }, [
-            ["tbody",
-              dbmon.data.map(function(db) {
-                return ["tr", { key : db.dbname }, [
-                  ["td", { class: "dbname" }, db.dbname],
-                  ["td", { class: "query-count" }, [
-                    ["span", { class: db.lastSample.countClassName }, db.lastSample.nbQueries]
-                  ]],
-                  db.lastSample.topFiveQueries.map(function(query) {
-                    return ["td", { class: "Query " + query.elapsedClassName }, [
-                      ["span", query.formatElapsed],
-                      ["div", { class: "popover left" }, [
-                        ["div", { class: "popover-content" }, query.query],
-                        ["div", { class: "arrow" }, ""]
-                      ]]
-                    ]];
-                  })
-                ]];
-              })
-            ]
-          ]]
-        ]];
-      }
-    }
+  function DBMonView() {
+    return (vm, dbs) =>
+      h("div", [
+        h("table.table.table-striped.latest-data", [
+          h("tbody", dbs.map(db =>
+            h("tr", [
+              h("td.dbname", db.dbname),
+              h("td.query-count", [
+                h("span", { class: db.lastSample.countClassName }, db.lastSample.nbQueries)
+              ])
+            ].concat(db.lastSample.topFiveQueries.map(query =>
+              h("td", { class: query.elapsedClassName }, [
+                h("span", query.formatElapsed),
+                h(".popover.left", [
+                  h(".popover-content", query.query),
+                  h(".arrow"),
+                ])
+              ])
+            )))
+          ))
+        ])
+      ])
   }
 
-  function DBMon() {
-    this.data = [];
-
-    this.update = function() {
-      this.data = ENV.generateData().toArray();
-
-      Monitoring.renderRate.ping();
-
-      this.vm.redraw();
-
-      setTimeout(this.update.bind(this), ENV.timeout);
-    };
+  function getData() {
+    return ENV.generateData().toArray();
   }
 
-  var dbmon = new DBMon();
+  function update() {
+    Monitoring.renderRate.ping();
+    view.update(getData());
+    setTimeout(update, ENV.timeout);
+  };
 
-  domvm(DBMonView, dbmon).mount(document.getElementById("app"));
+  var view = domvm.createView(DBMonView, getData(), false).mount(document.getElementById("app"));
 
-  dbmon.update();
+  update();
 });
